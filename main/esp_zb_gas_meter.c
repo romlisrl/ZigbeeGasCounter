@@ -104,6 +104,7 @@ QueueHandle_t deep_sleep_queue_handle = NULL;
 TimerHandle_t reset_instantaneous_demand_timer = NULL;
 #endif
 TimerHandle_t deep_sleep_timer = NULL;
+TimerHandle_t periodic_checks_timer = NULL;  // Timer for periodic radio/battery checks (event-driven instead of polling)
 EventGroupHandle_t report_event_group_handle = NULL;
 EventGroupHandle_t main_event_group_handle = NULL;
 
@@ -280,6 +281,16 @@ void check_shall_measure_battery()
     }
 }
 #endif
+
+// Periodic callback to check if radio or battery measurement is needed
+// Called every MUST_SYNC_MINIMUM_TIME seconds instead of polling every 250ms
+void periodic_checks_callback(TimerHandle_t xTimer)
+{
+    #ifdef MEASURE_BATTERY_LEVEL
+    check_shall_measure_battery();
+    #endif
+    check_shall_enable_radio();
+}
 
 #ifdef MEASURE_FLOW_RATE
 // After two consecutive values of current_summation_delivered this method
@@ -690,7 +701,7 @@ void gm_main_loop_task(void *arg)
         EventBits_t uxBits = xEventGroupWaitBits(
             main_event_group_handle
             , SHALL_ENABLE_ZIGBEE
-            #ifdef MEASURE_BATTERY_LEVEL 
+            #ifdef MEASURE_BATTERY_LEVEL
             | SHALL_MEASURE_BATTERY
             #endif
             | SHALL_DISABLE_ZIGBEE
@@ -700,11 +711,7 @@ void gm_main_loop_task(void *arg)
             #endif
             ,pdTRUE // clear on exit
             ,pdFALSE
-            #ifdef LIGHT_SLEEP
-            ,portMAX_DELAY
-            #else
-            ,pdMS_TO_TICKS(250)
-            #endif
+            ,portMAX_DELAY  // Block indefinitely - triggered by events/callbacks instead of polling
         );
         if (uxBits != 0)
         {
@@ -796,13 +803,6 @@ void gm_main_loop_task(void *arg)
                 }
             }
             #endif
-        }
-        else
-        {
-            #ifdef MEASURE_BATTERY_LEVEL
-            check_shall_measure_battery();
-            #endif
-            check_shall_enable_radio();
         }
     }
 }
@@ -1064,7 +1064,7 @@ esp_err_t esp_zb_power_save_init(void)
     #ifdef DEEP_SLEEP
     esp_pm_config_t pm_config = {
         .max_freq_mhz = cur_cpu_freq_mhz,
-        .min_freq_mhz = cur_cpu_freq_mhz,
+        .min_freq_mhz = 80,  // Enable dynamic frequency scaling down to 80 MHz
     #if CONFIG_FREERTOS_USE_TICKLESS_IDLE
         // TODO: explore why this causes a problem
         // When the device enters deep sleep after a 3s period
@@ -1174,6 +1174,13 @@ void app_main(void)
     ESP_ERROR_CHECK((timer_since_press_handler = xTimerCreate("0.2s_since_press", pdMS_TO_TICKS(CLICK_PRESS_TIME_MS), pdFALSE, "2_t_p", timer_since_press_cb)) == NULL ? ESP_FAIL : ESP_OK);
     ESP_ERROR_CHECK((t_detect_hold = xTimerCreate("4s_since_press", pdMS_TO_TICKS(CLICK_HOLD_TIME_MS), pdFALSE, "4_s_p", timer_detect_hold_cb)) == NULL ? ESP_FAIL : ESP_OK);
     ESP_ERROR_CHECK((timer_since_release_handler = xTimerCreate("0.2s_since_release", pdMS_TO_TICKS(CLICK_RELEASE_TIME_MS), pdFALSE, "2_t_r", timer_since_release_cb)) == NULL ? ESP_FAIL : ESP_OK);
+
+    // Periodic timer for radio/battery checks (replaces 250ms polling)
+    // Set period to slightly less than MUST_SYNC_MINIMUM_TIME to ensure checks happen
+    ESP_ERROR_CHECK((periodic_checks_timer = xTimerCreate("periodic_checks", pdMS_TO_TICKS(MUST_SYNC_MINIMUM_TIME * 1000 - 100), pdTRUE, "p_c", periodic_checks_callback)) == NULL ? ESP_FAIL : ESP_OK);
+    if (periodic_checks_timer != NULL) {
+        xTimerStart(periodic_checks_timer, 0);
+    }
 
     #ifdef DEEP_SLEEP
     ESP_ERROR_CHECK((deep_sleep_queue_handle = xQueueCreate(1, sizeof(TickType_t))) == NULL ? ESP_FAIL : ESP_OK);
