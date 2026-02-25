@@ -166,7 +166,7 @@ void adc_task(void *arg)
             set_battery_unavailable();
             continue;
         }
-        vTaskDelay(pdMS_TO_TICKS(5000));
+        vTaskDelay(pdMS_TO_TICKS(150));
         error = bat_continuous_adc_init(channel, &handle);
         if (error != ESP_OK) {
             set_battery_unavailable();
