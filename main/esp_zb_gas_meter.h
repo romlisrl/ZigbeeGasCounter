@@ -24,8 +24,8 @@
 #define MEASURE_BATTERY_LEVEL
 
 // Only one can be defined
-#define DEEP_SLEEP
-//#define LIGHT_SLEEP
+//#define DEEP_SLEEP
+#define LIGHT_SLEEP
 // ******************************************************************************
 
 // ******************************************************************************

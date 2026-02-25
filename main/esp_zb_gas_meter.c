@@ -1080,7 +1080,7 @@ esp_err_t esp_zb_power_save_init(void)
     #ifdef LIGHT_SLEEP
     esp_pm_config_t pm_config = {
         .max_freq_mhz = cur_cpu_freq_mhz,
-        .min_freq_mhz = cur_cpu_freq_mhz,
+        .min_freq_mhz = 80,
         .light_sleep_enable = true
     };
     #endif
