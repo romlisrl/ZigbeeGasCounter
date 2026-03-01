@@ -22,11 +22,11 @@
 
 /* Zigbee configuration */
 #define ED_AGING_TIMEOUT                ESP_ZB_ED_AGING_TIMEOUT_64MIN
-#define ED_KEEP_ALIVE                   3000    /* 3000 millisecond */
+#define ED_KEEP_ALIVE                   30000    /* 30 secons in millisecond */
 #define ESP_ZB_PRIMARY_CHANNEL_MASK     ESP_ZB_TRANSCEIVER_ALL_CHANNELS_MASK  /* Zigbee primary channel mask use in the example */
 #define MY_METERING_ENDPOINT            1
 
-#define INITIAL_TIME_KEEPING_RADIO_ON   2 * 60 /* 2 minutes in seconds */
+#define INITIAL_TIME_KEEPING_RADIO_ON   12  //changed to 12 seconds  2 * 60 /* 2 minutes in seconds */
 
 #ifdef LIGHT_SLEEP
 struct timeval time_commisioning_started = {
@@ -479,15 +479,14 @@ void esp_zb_task(void *pvParameters)
         .install_code_policy = false,
         .nwk_cfg.zed_cfg = {
             .ed_timeout = ED_AGING_TIMEOUT, // 64 minutes
-            .keep_alive = ED_KEEP_ALIVE,    // 3 seconds
+            .keep_alive = ED_KEEP_ALIVE,    // 30 seconds
         },
     };
+
     #ifdef LIGHT_SLEEP
     esp_zb_sleep_enable(true);
-    if (!esp_zb_get_rx_on_when_idle()) {
-        esp_zb_set_rx_on_when_idle(true);
-    }
-    ESP_ERROR_CHECK(esp_zb_sleep_set_threshold(200));
+    esp_zb_set_rx_on_when_idle(true);
+    ESP_ERROR_CHECK(esp_zb_sleep_set_threshold(50));
     ESP_ERROR_CHECK(esp_sleep_enable_gpio_wakeup());
     #endif
 
@@ -768,7 +767,7 @@ void esp_zb_task(void *pvParameters)
     ESP_ERROR_CHECK(esp_zb_zcl_start_attr_reporting(extended_status_location_info));
     ESP_ERROR_CHECK(update_reporting(&extended_status_location_info, 0));
 
-    esp_zb_set_tx_power(IEEE802154_TXPOWER_VALUE_MAX);
+    esp_zb_set_tx_power(IEEE802154_TXPOWER_INDEX_MIN);
     ESP_ERROR_CHECK(esp_zb_set_primary_network_channel_set(ESP_ZB_PRIMARY_CHANNEL_MASK));
     ESP_ERROR_CHECK(esp_zb_set_secondary_network_channel_set(ESP_ZB_PRIMARY_CHANNEL_MASK));
 
@@ -787,6 +786,7 @@ void bdb_start_top_level_commissioning_cb(uint8_t mode_mask)
 void gm_main_loop_zigbee_task(void *arg) 
 {
     ESP_LOGI(TAG, "Zigbee Loop Task...");
+    bool set_radio_off = true;
     while (true) {
         // Not all bits will be set, but it is more efficient to wait for the maximum
         // number of bits to be set before continuing, this is the reason we wait for
@@ -805,6 +805,10 @@ void gm_main_loop_zigbee_task(void *arg)
             ,portMAX_DELAY
         );
         if (!leaving_network && esp_zb_bdb_dev_joined()) {
+            if (set_radio_off) {
+                set_radio_off = false;
+                esp_zb_set_rx_on_when_idle(false);
+            }
             if (uxBits != 0) {
                 // Note we must manually clear the bits to avoid infinite loops
                 esp_zb_zcl_status_t status = ESP_ZB_ZCL_STATUS_SUCCESS;
@@ -898,7 +902,8 @@ void esp_zb_app_signal_handler(esp_zb_app_signal_t *signal_struct)
             } else {
                 ESP_LOGI(TAG, "Device rebooted");
             }
-            ESP_LOGD(TAG, "Deferred driver initialization %s", gm_tasks_init() ? "failed" : "successful");
+            err_status = gm_tasks_init();
+            ESP_LOGD(TAG, "Deferred driver initialization %s", err_status ? "failed" : "successful");
         } else {
             #ifdef DEEP_SLEEP
             TickType_t deep_sleep_time = portMAX_DELAY;
@@ -943,7 +948,7 @@ void esp_zb_app_signal_handler(esp_zb_app_signal_t *signal_struct)
         esp_zb_set_node_descriptor_manufacturer_code(manufacturer_code);
         break;
     #ifdef LIGHT_SLEEP
-    case ESP_ZB_COMMON_SIGNAL_CAN_SLEEP:
+    case ESP_ZB_COMMON_SIGNAL_CAN_SLEEP: // 0x16 = 22
         if (!esp_zb_bdb_dev_joined()) {
             break;
         }
@@ -951,7 +956,7 @@ void esp_zb_app_signal_handler(esp_zb_app_signal_t *signal_struct)
         uint32_t ms = can_sleep_params->sleep_duration;
         if (ms < 50) break;
         int32_t seconds_since_commisioning_started = time_diff_ms(&time_commisioning_started) / 1000U;
-        if (seconds_since_commisioning_started <= INITIAL_TIME_KEEPING_RADIO_ON) break;
+        if (seconds_since_commisioning_started < INITIAL_TIME_KEEPING_RADIO_ON) break;
         if (ms > ED_KEEP_ALIVE) ms = ED_KEEP_ALIVE;
         ESP_LOGI(TAG, "Going to sleep for %d ms", ms);
         esp_sleep_enable_timer_wakeup(ms * 1000);

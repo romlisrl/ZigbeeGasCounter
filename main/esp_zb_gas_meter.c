@@ -58,7 +58,7 @@
 const char *TAG = "GAS_COUNTER";
 
 // Last time a pulse was received
-RTC_DATA_ATTR struct timeval last_pulse_time;
+// RTC_DATA_ATTR struct timeval last_pulse_time;
 
 // last time an interrupt occurred
 struct timeval last_interrupt_time;
@@ -136,7 +136,7 @@ typedef enum ButtonState_e {
 
 button_state_t button_state = NONE;
 
-static portMUX_TYPE counter_spinlock = portMUX_INITIALIZER_UNLOCKED;
+// static portMUX_TYPE counter_spinlock = portMUX_INITIALIZER_UNLOCKED;
 
 // Load counter value from NVS
 esp_err_t gm_counter_load_nvs()
@@ -344,44 +344,44 @@ void gm_compute_instantaneous_demand(int time_diff_ms, bool fromISR)
 // Adds one to current_summation_delivered and nothing else
 void gm_counter_increment(const struct timeval *now, bool fromISR)
 {
-    if (fromISR)
-    {
-        taskENTER_CRITICAL_ISR(&counter_spinlock);
-    }
-    else
-    {
-        taskENTER_CRITICAL(&counter_spinlock);
-    }
-    bool debounce = false;
-    #ifdef MEASURE_FLOW_RATE
-    bool compute_instantaneous_demand = false;
-    #endif
-    int time_diff_ms = 0;
-    if (last_pulse_time.tv_sec != 0 || last_pulse_time.tv_usec != 0)
-    {
-        time_diff_ms = (now->tv_sec - last_pulse_time.tv_sec) * 1000 +
-                       (now->tv_usec - last_pulse_time.tv_usec) / 1000;
-        // debounce
-        debounce = time_diff_ms > 0 && time_diff_ms < COUNTER_INCREMENT_DEBOUNCE_TIME;
-        #ifdef MEASURE_FLOW_RATE
-        compute_instantaneous_demand = time_diff_ms > 0 && !debounce;
-        #endif
-    }
-    if (!debounce)
-    {
-        last_pulse_time.tv_usec = now->tv_usec;
-        last_pulse_time.tv_sec = now->tv_sec;
-    }
-    if (fromISR)
-    {
-        taskEXIT_CRITICAL_ISR(&counter_spinlock);
-    }
-    else
-    {
-        taskEXIT_CRITICAL(&counter_spinlock);
-    }
-    if (debounce)
-        return;
+    // if (fromISR)
+    // {
+    //     taskENTER_CRITICAL_ISR(&counter_spinlock);
+    // }
+    // else
+    // {
+    //     taskENTER_CRITICAL(&counter_spinlock);
+    // }
+    // bool debounce = false;
+    // #ifdef MEASURE_FLOW_RATE
+    // bool compute_instantaneous_demand = false;
+    // #endif
+    // int time_diff_ms = 0;
+    // if (last_pulse_time.tv_sec != 0 || last_pulse_time.tv_usec != 0)
+    // {
+    //     time_diff_ms = (now->tv_sec - last_pulse_time.tv_sec) * 1000 +
+    //                    (now->tv_usec - last_pulse_time.tv_usec) / 1000;
+    //     // debounce
+    //     debounce = time_diff_ms > 0 && time_diff_ms < COUNTER_INCREMENT_DEBOUNCE_TIME;
+    //     #ifdef MEASURE_FLOW_RATE
+    //     compute_instantaneous_demand = time_diff_ms > 0 && !debounce;
+    //     #endif
+    // }
+    // if (!debounce)
+    // {
+    //     last_pulse_time.tv_usec = now->tv_usec;
+    //     last_pulse_time.tv_sec = now->tv_sec;
+    // }
+    // if (fromISR)
+    // {
+    //     taskEXIT_CRITICAL_ISR(&counter_spinlock);
+    // }
+    // else
+    // {
+    //     taskEXIT_CRITICAL(&counter_spinlock);
+    // }
+    // if (debounce)
+    //     return;
     led_on();
     current_summation_delivered.low += 1; // Adds up 1 cent of m³
     if (current_summation_delivered.low == 0)
