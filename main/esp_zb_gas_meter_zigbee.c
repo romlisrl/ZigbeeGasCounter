@@ -426,22 +426,6 @@ void zb_command_handler(esp_zb_zcl_command_send_status_message_t message)
     ESP_LOGI(TAG, "  status(0x%x) transaction(%d)", message.status, message.tsn);
 }
 
-// bool zb_raw_command_handler(uint8_t bufid)
-// {
-//     ESP_LOGI(TAG, "In zb_raw_command_handler");
-//     ESP_LOGI(TAG, "  bufid(0x%x)", bufid);
-
-//     return false;
-// }
-
-// bool zb_device_cb_id(uint8_t bufid)
-// {
-//     ESP_LOGI(TAG, "In zb_device_cb_id");
-//     ESP_LOGI(TAG, "  bufid(0x%x)", bufid);
-
-//     return false;
-// }
-
 // Update reporting information for the specified attribute
 esp_err_t update_reporting(esp_zb_zcl_attr_location_info_t *attr_location, uint32_t min_change)
 {
@@ -786,7 +770,9 @@ void bdb_start_top_level_commissioning_cb(uint8_t mode_mask)
 void gm_main_loop_zigbee_task(void *arg) 
 {
     ESP_LOGI(TAG, "Zigbee Loop Task...");
+    #ifdef LIGHT_SLEEP
     bool set_radio_off = true;
+    #endif
     while (true) {
         // Not all bits will be set, but it is more efficient to wait for the maximum
         // number of bits to be set before continuing, this is the reason we wait for
@@ -805,10 +791,12 @@ void gm_main_loop_zigbee_task(void *arg)
             ,portMAX_DELAY
         );
         if (!leaving_network && esp_zb_bdb_dev_joined()) {
+            #ifdef LIGHT_SLEEP
             if (set_radio_off) {
                 set_radio_off = false;
                 esp_zb_set_rx_on_when_idle(false);
             }
+            #endif
             if (uxBits != 0) {
                 // Note we must manually clear the bits to avoid infinite loops
                 esp_zb_zcl_status_t status = ESP_ZB_ZCL_STATUS_SUCCESS;
