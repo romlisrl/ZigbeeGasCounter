@@ -174,7 +174,7 @@ esp_err_t zb_ota_upgrade_status_handler(esp_zb_zcl_ota_upgrade_value_message_t m
 			break;
 		case ESP_ZB_ZCL_OTA_UPGRADE_STATUS_ABORT:
 			ESP_LOGI(TAG, "-- OTA Aborted");
-			#ifdef DEEP_SLEEP
+			#ifdef FEATURE_DEEP_SLEEP
 			xEventGroupSetBits(main_event_group_handle, SHALL_START_DEEP_SLEEP);
 			#endif
 			break;
@@ -198,13 +198,13 @@ esp_err_t zb_ota_upgrade_query_image_resp_handler(esp_zb_zcl_ota_upgrade_query_i
 	else
 	{
 		ESP_LOGI(TAG, "No OTA image available, going to deep sleep");
-		#ifdef DEEP_SLEEP
+		#ifdef FEATURE_DEEP_SLEEP
 		xEventGroupSetBits(main_event_group_handle, SHALL_START_DEEP_SLEEP);
 		#endif
 	}
 	if (ret == ESP_OK)
 	{
-		#ifdef DEEP_SLEEP
+		#ifdef FEATURE_DEEP_SLEEP
 		xEventGroupSetBits(main_event_group_handle, SHALL_STOP_DEEP_SLEEP);
 		#endif
 		ESP_LOGI(TAG, "Approving OTA image upgrade");

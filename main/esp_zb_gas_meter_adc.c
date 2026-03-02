@@ -17,7 +17,7 @@
 
 #include "esp_zb_gas_meter.h"
 
-#ifdef MEASURE_BATTERY_LEVEL
+#ifdef FEATURE_MEASURE_BATTERY_LEVEL
 
 #include "esp_zb_gas_meter_zigbee.h"
 #include "esp_zb_gas_meter_adc.h"
@@ -26,9 +26,6 @@
 #include "esp_adc/adc_continuous.h"
 #include "esp_adc/adc_cali.h"
 #include "esp_adc/adc_cali_scheme.h"
-
-// output - pin to enable battery voltage to the adc converter
-#define BAT_MON_ENABLE                      GPIO_NUM_21
 
 uint8_t battery_voltage = 0;
 uint8_t battery_percentage = 0;
@@ -44,7 +41,7 @@ uint8_t battery_voltage_th1 = UINT8_C(WARN_BATTERY_VOLTAGE/100);
 
 struct timeval last_battery_measurement_time;
 
-adc_channel_t channel = ADC_CHANNEL_2; // ADC_CHANNEL_3 is a better option, but the current board was using 0 so let's change it now GPIO 3
+adc_channel_t channel = ADC_CHANNEL; // ADC_CHANNEL_3 is a better option, but the current board was using 0 so let's change it now GPIO 3
 adc_continuous_handle_t handle = NULL;
 
 void set_battery_unavailable()

@@ -28,7 +28,7 @@
 
 #define INITIAL_TIME_KEEPING_RADIO_ON   12  //changed to 12 seconds  2 * 60 /* 2 minutes in seconds */
 
-#ifdef LIGHT_SLEEP
+#ifdef FEATURE_LIGHT_SLEEP
 struct timeval time_commisioning_started = {
     .tv_sec = 0,
     .tv_usec = 0
@@ -42,7 +42,7 @@ esp_zb_uint48_t current_summation_delivered = {
 
 uint8_t device_status = 0x0;
 uint64_t device_extended_status = 0x0;
-#ifdef MEASURE_FLOW_RATE
+#ifdef FEATURE_MEASURE_FLOW_RATE
 esp_zb_int24_t instantaneous_demand = {
     .low = 0,
     .high = 0
@@ -58,7 +58,7 @@ uint64_t last_summation_sent = 0;
 // value for the ESP_ZB_ZCL_ATTR_IDENTIFY_IDENTIFY_TIME_ID attribute
 uint16_t identify_time = 0;
 
-#ifdef MEASURE_BATTERY_LEVEL
+#ifdef FEATURE_MEASURE_BATTERY_LEVEL
 uint8_t battery_alarm_mask = ESP_ZB_ZCL_POWER_CONFIG_MAINS_ALARM_MASK_VOLTAGE_LOW | ESP_ZB_ZCL_POWER_CONFIG_MAINS_ALARM_MASK_VOLTAGE_HIGH | ESP_ZB_ZCL_POWER_CONFIG_MAINS_ALARM_MASK_VOLTAGE_UNAVAIL;
 
 uint8_t battery_voltage_rated = RATED_BATTERY_VOLTAGE / 100;
@@ -238,7 +238,7 @@ esp_zb_zcl_status_t zb_radio_setup_report_values(EventBits_t uxBits)
             return status;
         }
     }
-    #ifdef MEASURE_FLOW_RATE
+    #ifdef FEATURE_MEASURE_FLOW_RATE
     if ((uxBits & INSTANTANEOUS_DEMAND_REPORT) == INSTANTANEOUS_DEMAND_REPORT) {
         status = esp_zb_zcl_set_attribute_val(MY_METERING_ENDPOINT,
             ESP_ZB_ZCL_CLUSTER_ID_METERING, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
@@ -249,7 +249,7 @@ esp_zb_zcl_status_t zb_radio_setup_report_values(EventBits_t uxBits)
         }
     }
     #endif
-    #ifdef MEASURE_BATTERY_LEVEL
+    #ifdef FEATURE_MEASURE_BATTERY_LEVEL
     if ((uxBits & BATTERY_REPORT) == BATTERY_REPORT) {
         status = esp_zb_zcl_set_attribute_val(MY_METERING_ENDPOINT,
             ESP_ZB_ZCL_CLUSTER_ID_POWER_CONFIG, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
@@ -317,7 +317,7 @@ esp_zb_zcl_status_t zb_radio_send_values(EventBits_t uxBits)
         ESP_LOGI(TAG, "CurrentSummationDelivered reported");
     }
 
-    #ifdef MEASURE_FLOW_RATE
+    #ifdef FEATURE_MEASURE_FLOW_RATE
     if ((uxBits & INSTANTANEOUS_DEMAND_REPORT) == INSTANTANEOUS_DEMAND_REPORT) {
         report_attr_cmd.clusterID = ESP_ZB_ZCL_CLUSTER_ID_METERING;
         report_attr_cmd.attributeID = ESP_ZB_ZCL_ATTR_METERING_INSTANTANEOUS_DEMAND_ID;
@@ -329,7 +329,7 @@ esp_zb_zcl_status_t zb_radio_send_values(EventBits_t uxBits)
         ESP_LOGI(TAG, "InstantaneousDemand reported");
     }
     #endif
-    #ifdef MEASURE_BATTERY_LEVEL
+    #ifdef FEATURE_MEASURE_BATTERY_LEVEL
     if ((uxBits & BATTERY_REPORT) == BATTERY_REPORT) {
         report_attr_cmd.clusterID = ESP_ZB_ZCL_CLUSTER_ID_POWER_CONFIG;
         report_attr_cmd.attributeID = ESP_ZB_ZCL_ATTR_POWER_CONFIG_BATTERY_PERCENTAGE_REMAINING_ID;
@@ -444,7 +444,7 @@ esp_err_t update_reporting(esp_zb_zcl_attr_location_info_t *attr_location, uint3
 void esp_zb_task(void *pvParameters) 
 {
     ESP_LOGI(TAG, "Initialize zigbee task started");
-    #ifdef LIGHT_SLEEP
+    #ifdef FEATURE_LIGHT_SLEEP
     gettimeofday(&time_commisioning_started, NULL);
     #endif
 
@@ -467,7 +467,7 @@ void esp_zb_task(void *pvParameters)
         },
     };
 
-    #ifdef LIGHT_SLEEP
+    #ifdef FEATURE_LIGHT_SLEEP
     esp_zb_sleep_enable(true);
     esp_zb_set_rx_on_when_idle(true);
     ESP_ERROR_CHECK(esp_zb_sleep_set_threshold(50));
@@ -512,7 +512,7 @@ void esp_zb_task(void *pvParameters)
     esp_zb_attribute_list_t *esp_zb_identify_cluster = esp_zb_identify_cluster_create(&identify_cfg);
 
     /* power cluster */
-    #ifdef MEASURE_BATTERY_LEVEL
+    #ifdef FEATURE_MEASURE_BATTERY_LEVEL
     esp_zb_power_config_cluster_cfg_t power_cfg = {
         .main_voltage = 0,
         .main_freq = 0,
@@ -627,7 +627,7 @@ void esp_zb_task(void *pvParameters)
                                         ESP_ZB_ZCL_ATTR_TYPE_U24,
                                         ESP_ZB_ZCL_ATTR_ACCESS_READ_ONLY,
                                         &divisor));                   
-    #ifdef MEASURE_FLOW_RATE
+    #ifdef FEATURE_MEASURE_FLOW_RATE
     ESP_ERROR_CHECK(esp_zb_cluster_add_attr(esp_zb_metering_server_cluster,
                                         ESP_ZB_ZCL_CLUSTER_ID_METERING,
                                         ESP_ZB_ZCL_ATTR_METERING_INSTANTANEOUS_DEMAND_ID,  // ID del atributo instantaneousDemand
@@ -668,7 +668,7 @@ void esp_zb_task(void *pvParameters)
     ESP_ERROR_CHECK(esp_zb_cluster_list_add_identify_cluster(esp_zb_meter_cluster_list, esp_zb_identify_cluster, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE));
     ESP_ERROR_CHECK(esp_zb_cluster_list_add_identify_cluster(esp_zb_meter_cluster_list, esp_zb_identify_client_cluster, ESP_ZB_ZCL_CLUSTER_CLIENT_ROLE));
     ESP_ERROR_CHECK(esp_zb_cluster_list_add_metering_cluster(esp_zb_meter_cluster_list, esp_zb_metering_server_cluster, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE));
-    #ifdef MEASURE_BATTERY_LEVEL
+    #ifdef FEATURE_MEASURE_BATTERY_LEVEL
     ESP_ERROR_CHECK(esp_zb_cluster_list_add_power_config_cluster(esp_zb_meter_cluster_list, esp_zb_power_cluster, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE));
     #endif
     ESP_ERROR_CHECK(esp_zb_cluster_list_add_ota_cluster(esp_zb_meter_cluster_list, esp_zb_ota_cluster, ESP_ZB_ZCL_CLUSTER_CLIENT_ROLE));
@@ -697,7 +697,7 @@ void esp_zb_task(void *pvParameters)
     ESP_ERROR_CHECK(esp_zb_zcl_start_attr_reporting(current_summation_delivered_location_info));
     ESP_ERROR_CHECK(update_reporting(&current_summation_delivered_location_info, (uint32_t)COUNTER_REPORT_DIFF));
 
-    #ifdef MEASURE_FLOW_RATE
+    #ifdef FEATURE_MEASURE_FLOW_RATE
     esp_zb_zcl_attr_location_info_t instantaneous_demand_location_info = {
         .attr_id = ESP_ZB_ZCL_ATTR_METERING_INSTANTANEOUS_DEMAND_ID,
         .cluster_id = ESP_ZB_ZCL_CLUSTER_ID_METERING,
@@ -709,7 +709,7 @@ void esp_zb_task(void *pvParameters)
     ESP_ERROR_CHECK(update_reporting(&instantaneous_demand_location_info, 0));
     #endif
 
-    #ifdef MEASURE_BATTERY_LEVEL
+    #ifdef FEATURE_MEASURE_BATTERY_LEVEL
     esp_zb_zcl_attr_location_info_t  percentage_location_info = {
         .attr_id = ESP_ZB_ZCL_ATTR_POWER_CONFIG_BATTERY_PERCENTAGE_REMAINING_ID,
         .cluster_id = ESP_ZB_ZCL_CLUSTER_ID_POWER_CONFIG,
@@ -770,7 +770,7 @@ void bdb_start_top_level_commissioning_cb(uint8_t mode_mask)
 void gm_main_loop_zigbee_task(void *arg) 
 {
     ESP_LOGI(TAG, "Zigbee Loop Task...");
-    #ifdef LIGHT_SLEEP
+    #ifdef FEATURE_LIGHT_SLEEP
     bool set_radio_off = true;
     #endif
     while (true) {
@@ -783,7 +783,7 @@ void gm_main_loop_zigbee_task(void *arg)
             #ifdef MEASURE_INSTANTANEOUS_DEMAND
             | INSTANTANEOUS_DEMAND_REPORT
             #endif
-            #ifdef MEASURE_BATTERY_LEVEL
+            #ifdef FEATURE_MEASURE_BATTERY_LEVEL
             | BATTERY_REPORT
             #endif
             ,pdTRUE
@@ -791,7 +791,7 @@ void gm_main_loop_zigbee_task(void *arg)
             ,portMAX_DELAY
         );
         if (!leaving_network && esp_zb_bdb_dev_joined()) {
-            #ifdef LIGHT_SLEEP
+            #ifdef FEATURE_LIGHT_SLEEP
             if (set_radio_off) {
                 set_radio_off = false;
                 esp_zb_set_rx_on_when_idle(false);
@@ -802,12 +802,12 @@ void gm_main_loop_zigbee_task(void *arg)
                 esp_zb_zcl_status_t status = ESP_ZB_ZCL_STATUS_SUCCESS;
                 ESP_LOGI(TAG, "Reporting to client Sum=%s, Instant=%s, Bat=%s, Status=%s, Exten=%s"
                     ,((uxBits & CURRENT_SUMMATION_DELIVERED_REPORT) != 0) ? "Yes": "No"
-                    #ifdef MEASURE_FLOW_RATE
+                    #ifdef FEATURE_MEASURE_FLOW_RATE
                     ,((uxBits & INSTANTANEOUS_DEMAND_REPORT) != 0) ? "Yes": "No"
                     #else
                     ,"N/A"
                     #endif
-                    #ifdef MEASURE_BATTERY_LEVEL
+                    #ifdef FEATURE_MEASURE_BATTERY_LEVEL
                     ,((uxBits & BATTERY_REPORT) != 0) ? "Yes": "No"
                     #else
                     ,"N/A"
@@ -865,7 +865,7 @@ void esp_zb_app_signal_handler(esp_zb_app_signal_t *signal_struct)
         break;
     case ESP_ZB_ZDO_SIGNAL_SKIP_STARTUP:
         ESP_LOGI(TAG, "Zigbee commissioning");
-        #ifdef DEEP_SLEEP
+        #ifdef FEATURE_DEEP_SLEEP
         TickType_t deep_sleep_time = portMAX_DELAY;
         if (xQueueSendToFront(deep_sleep_queue_handle, &deep_sleep_time, pdMS_TO_TICKS(100)) != pdTRUE)
             ESP_LOGE(TAG, "Can't reschedule deep sleep timer");
@@ -875,13 +875,13 @@ void esp_zb_app_signal_handler(esp_zb_app_signal_t *signal_struct)
     case ESP_ZB_BDB_SIGNAL_DEVICE_FIRST_START:
     case ESP_ZB_BDB_SIGNAL_DEVICE_REBOOT:
         if (err_status == ESP_OK) {
-            #ifdef LIGHT_SLEEP
+            #ifdef FEATURE_LIGHT_SLEEP
             gettimeofday(&time_commisioning_started, NULL);
             #endif
             ESP_LOGD(TAG, "Device started up in%s factory-reset mode", esp_zb_bdb_is_factory_new() ? "" : " non");
             if (esp_zb_bdb_is_factory_new()) {
                 ESP_LOGI(TAG, "Start network steering from factory new");
-                #ifdef DEEP_SLEEP
+                #ifdef FEATURE_DEEP_SLEEP
                 TickType_t deep_sleep_time = portMAX_DELAY;
                 if (xQueueSendToFront(deep_sleep_queue_handle, &deep_sleep_time, pdMS_TO_TICKS(100)) != pdTRUE)
                     ESP_LOGE(TAG, "Can't reschedule deep sleep timer");
@@ -893,7 +893,7 @@ void esp_zb_app_signal_handler(esp_zb_app_signal_t *signal_struct)
             err_status = gm_tasks_init();
             ESP_LOGD(TAG, "Deferred driver initialization %s", err_status ? "failed" : "successful");
         } else {
-            #ifdef DEEP_SLEEP
+            #ifdef FEATURE_DEEP_SLEEP
             TickType_t deep_sleep_time = portMAX_DELAY;
             if (xQueueSendToFront(deep_sleep_queue_handle, &deep_sleep_time, pdMS_TO_TICKS(100)) != pdTRUE)
                 ESP_LOGE(TAG, "Can't reschedule deep sleep timer");
@@ -904,7 +904,7 @@ void esp_zb_app_signal_handler(esp_zb_app_signal_t *signal_struct)
         }
         break;
     case ESP_ZB_BDB_SIGNAL_STEERING:
-        #ifdef LIGHT_SLEEP
+        #ifdef FEATURE_LIGHT_SLEEP
         gettimeofday(&time_commisioning_started, NULL);
         #endif
         if (err_status == ESP_OK) {
@@ -935,7 +935,7 @@ void esp_zb_app_signal_handler(esp_zb_app_signal_t *signal_struct)
     case ESP_ZB_ZDO_SIGNAL_PRODUCTION_CONFIG_READY:
         esp_zb_set_node_descriptor_manufacturer_code(manufacturer_code);
         break;
-    #ifdef LIGHT_SLEEP
+    #ifdef FEATURE_LIGHT_SLEEP
     case ESP_ZB_COMMON_SIGNAL_CAN_SLEEP: // 0x16 = 22
         if (!esp_zb_bdb_dev_joined()) {
             break;

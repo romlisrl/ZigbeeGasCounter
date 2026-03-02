@@ -10,7 +10,7 @@
  * as you credit the original author(s) and share any derivatives under the same license.
  */
 #include "esp_zb_gas_meter.h"
-#ifdef MEASURE_BATTERY_LEVEL
+#ifdef FEATURE_MEASURE_BATTERY_LEVEL
 
 #include "sys/time.h"
 #include "freertos/task.h"

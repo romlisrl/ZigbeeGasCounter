@@ -14,10 +14,6 @@ This project is a DIY Zigbee-enabled gas meter that measures and tracks gas cons
 - OTA firmware updatable.
 - Device button with rich functionality 
 
-## Why Zigbee for DIY Projects?
-
-Zigbee is a low-power, reliable wireless protocol ideal for IoT devices. Unlike Wi-Fi, Zigbee consumes minimal energy, making it perfect for battery-operated devices. While commercial Zigbee gas meters aren’t readily available, this project demonstrates how to build one from scratch using affordable components and the ESP32-C6 module.
-
 ## Screenshots
 
 Below are some screenshots of the device integrated into Zigbee2MQTT:
@@ -27,6 +23,10 @@ Below are some screenshots of the device integrated into Zigbee2MQTT:
 ![Bind](images/Zigbee2MQTT-3.png)
 ![Reporting](images/Zigbee2MQTT-4.png)
 ![Clusters](images/Zigbee2MQTT-5.png)
+
+## Why Zigbee for DIY Projects?
+
+Zigbee is a low-power, reliable wireless protocol ideal for IoT devices. Unlike Wi-Fi, Zigbee consumes minimal energy, making it perfect for battery-operated devices. While commercial Zigbee gas meters aren’t readily available, this project demonstrates how to build one from scratch using affordable components and the ESP32-C6 module.
 
 ## How It Works
 
@@ -61,31 +61,25 @@ Once a gesture is recognized, the functionality attached, if any, is raised:
 
 ## Project Status
 
-!!HELP NEEDED!! December 9th 2025
-If you have some experience with ESP32 and Zigbee devices or you just want this project to move forward. PLEASE CONTACT ME and help me debug this device!
+March 2nd 2026 - Now testing in LIGHT_SLEEP mode.This project is in testing phase. It is now deployed for real gas consumption measurement at home.
 
-December 15th 2025 - Most of the problems fixed. Remaining issues are:
+Remaining issues are:
 
-1 - Home assistant support for the smart meter devices that reports m³/h as a unit of power (when the fluid is GAS) is not supported. So I created another cluster for reporting the counter as an analog input cluster. Note this is a problem because the maximum count value of a float is 16777216 but I added this just for testing.
-2 - Voltage value is not transmitted to the server as part of the value report (in zigbee terms) I actually I know i can force read the value from the server but I don't know how to push the value from the device to the server.
+* Voltage value is not transmitted to the server as part of the value report (in zigbee terms) I actually I know i can force read the value from the server but I don't know how to push the value from the device to the server.
 
-This project is still in the development phase. While it is not yet deployed for real gas consumption measurement, I have a working prototype on an **ESP32-C6-WROOM-1 development board** in a test environment. The prototype uses two buttons: one simulating the gas meter pulses and the other functioning as the main device button. The software is fully operational, I'm actually working on the hardware side.
+* The initial decission about using a 2S LiPo battery causes more troubles than benefits. I finally decided to go 1S LiPo battery and use the internal Seed-Studio 3v switching regulator and charger module.
 
-For the time being, I've decided to use a 2S lipo battery that can hold 8.4v and can be safely discharged to 7.0v. I've already develop the software to report battery at 100% level when it is 8.4v and 0% when it is 7.0v. There is also an attribute to get the battery voltage in millivolts.
-
-I've provided an update to Zigbee2mqtt to generalise the seMetering cluster so it can be used for electrical meters and gas meters. Hopefully that will simplify a lot the code to add to the external converters and that code can be reused by others
-
-I've just implemented and tested OTA support so in theory I could just distribute new firmware versions
+* OTA is no longer functional at all. I know about changes around OTA functionality in zigbee2mqtt and more testing is required.
 
 ### What is missing and how you can help
 
-See the **TODO** section below for specific tasks that need to be completed.
+See the **Project Status** section above for specific issues. If you can help I'll be more than happy.
+
+For discussions and contributions, please join the ongoing thread on the Home Assistant Community: 👉 [Zigbee Gas Counter](https://community.home-assistant.io/t/zigbee-gas-counter/833557)
 
 One of my main concerns is **power consumption and battery life**. The software includes battery status measuring and reporting.
 
-Currently, the prototype runs on a development board, but the long-term goal is to use only the **ESP32-C6 chip**, eliminating unnecessary components. To achieve this, I will need help reviewing schematics and PCB designs, as **I’m not an expert in hardware design—just an enthusiast**. If you have experience in this area, your input would be greatly appreciated.
-
-For discussions and contributions, please join the ongoing thread on the Home Assistant Community: 👉 [Zigbee Gas Counter](https://community.home-assistant.io/t/zigbee-gas-counter/833557)
+Currently, the testing prototype runs on a Seed Studio ESP32-C6, but the long-term goal is to use only the **ESP32-C6 chip**, eliminating unnecessary components. To achieve this, I will need help reviewing schematics and PCB designs, as **I’m not an expert in hardware design—just an enthusiast**. If you have experience in this area, your input would be greatly appreciated.
 
 ## Getting Started
 
@@ -93,12 +87,12 @@ For discussions and contributions, please join the ongoing thread on the Home As
 
 To build this project, you’ll need:
 
-- **ESP32-C6-WROOM-1** or a compatible development board.
+- **Seed Studio ESP32-C6** or a compatible development board.
 - **Magnetic reed switch** for pulse detection.
-- **10kΩ resistor** (pull-down).
-- **8.4 LiPo battery**. TBD
-- **DC to DC voltage step down**. I'm temporarily using an old MP1584 set to convert 8.4v to 3.3v.
+- **10kΩ resistors** (pull-down).
+- **3.6 LiPo battery**. TBD
 - Optional: Custom 3D-printed enclosure for the hardware.
+- Optional: External 2.4 Ghz antena.
 
 ### Software Requirements
 
@@ -147,18 +141,20 @@ idf.py -p PORT flash
 idf.py -p PORT monitor
 ```
 
+### **5. Hardware configuration in the source code
+
+Edit the file *esp_zb_gas_meter.h* and head to the section **FEATURES CONFIGURATION** and the section **HARDWARE CONFIGURATION** you can change the chip pins to be used or leave them as they are. You can also decide what features shall be enabled depending, for example, in the power source for your specific unig.
+
 ## Device operation and main button actions
 
 The device has just one button, but multiple gestures are recognized
 
 - Button press: When the main button is pressed, if the device was is sleep mode, zigbee radio is enabled. Note, button press is the first gesture of a possible list of gestures recognized
-- Button release: No specific action is associated to this gesture
+- Button release: No specific action is associated to this gesture. The time passed between the button press and release is used to determine more gestures as defined below.
 - Single click: A single click is detected when the time between press and release is shorter than 250ms. When single click gesture is detected, the device shall refresh data on the server side, including the battery status and voltage value (note the voltage value is not refresh in the server side automatically, there is a note on this topic), device error conditions are reset and reevaluated again.
-- Double click: A double click is detected when the time between press and release is sorter then 250ms and the button cycle is executed twice. When this gesture is recognized the device is reinitialized.
-- Unknown click: This happens when the user triple-click or press-click-press in a way that does not fit in a single or double click. No action is associated to this gesture
+- Double click: A double click is detected when the time between press and release is sorter then 250ms and the button cycle is executed twice. When this gesture is recognized the device is reset.
+- Unknown click: This happens when the user triple-click or press-click-press in a way that does not fit in a single or double click. No action is associated to this gesture.
 - Long press: When the button is pressed and not released for 3 seconds, the device is ordered to leave the network and start the commision process to join an open network again.
-
-Note the counter value is readable and writeable so it is possible to set the current value using zigbee front end
 
 ### NVS (Non-Volatile Storage)
 
