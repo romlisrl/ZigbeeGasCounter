@@ -18,6 +18,8 @@
 
 extern uint16_t zigbee_zcl_version;
 extern uint8_t  hw_version;
+extern uint8_t  app_version;
+extern uint8_t  stack_version;
 extern uint16_t zigbee_stack_version;
 
 esp_err_t check_boot_partition_change();

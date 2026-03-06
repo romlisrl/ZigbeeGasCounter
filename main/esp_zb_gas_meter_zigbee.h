@@ -41,8 +41,4 @@ extern RTC_DATA_ATTR uint64_t device_extended_status;
 // Measure instantaneous demand as int24
 extern esp_zb_int24_t instantaneous_demand;
 
-// Last report sent time
-extern RTC_DATA_ATTR struct timeval last_report_sent_time;
-extern RTC_DATA_ATTR uint64_t last_summation_sent;
-
 void esp_zb_task(void *pvParameters);

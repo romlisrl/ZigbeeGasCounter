@@ -234,26 +234,8 @@ void check_shall_enable_radio()
 {
     if (zigbee_task_handle == NULL)
     {
-        bool enable_radio =
-            (last_report_sent_time.tv_sec == 0 && last_report_sent_time.tv_usec == 0) ||
-            (time_diff_ms(&last_report_sent_time) / 1000 >= MUST_SYNC_MINIMUM_TIME);
-        // Test to report just once every hour
-        
-        // this 'if' statement might not be needed at all if attribute reporting is already 
-        // turning on radio when reporting is greather than COUNTER_REPORT_DIFF as configured
-        // in the zigbee reporting attributes
-        // if (!enable_radio && last_summation_sent > 0)
-        // {
-        //     uint64_t current_summation_64 = current_summation_delivered.high;
-        //     current_summation_64 <<= 32;
-        //     current_summation_64 |= current_summation_delivered.low;
-        //     enable_radio = current_summation_64 - last_summation_sent >= COUNTER_REPORT_DIFF;
-        // }
-        if (enable_radio)
-        {
-            xEventGroupSetBits(main_event_group_handle, SHALL_ENABLE_ZIGBEE);
-            xEventGroupSetBits(report_event_group_handle, CURRENT_SUMMATION_DELIVERED_REPORT);
-        }
+        xEventGroupSetBits(main_event_group_handle, SHALL_ENABLE_ZIGBEE);
+        xEventGroupSetBits(report_event_group_handle, CURRENT_SUMMATION_DELIVERED_REPORT);
     }
 }
 
@@ -930,16 +912,12 @@ esp_err_t gm_deep_sleep_init()
     #endif
 
     #if defined(FEATURE_DEEP_SLEEP) || defined(FEATURE_LIGHT_SLEEP)
-        if (last_report_sent_time.tv_sec == 0 && last_report_sent_time.tv_usec == 0) {
-            ESP_LOGI(TAG, "Last report sent time initialized");
-            gettimeofday(&last_report_sent_time, NULL);
-        }
         /* Set the methods of how to wake up: */
         /* 1. RTC timer waking-up */
         /* This is useless in LIGHT_SLEEP */
         ESP_LOGI(TAG, "Configuring wake up methods");
-        int report_time_s = (gpio_time.tv_sec - last_report_sent_time.tv_sec) +
-                            (gpio_time.tv_usec - last_report_sent_time.tv_usec) / 1000000;
+        int report_time_s = (gpio_time.tv_sec) +
+                            (gpio_time.tv_usec) / 1000000;
         if (report_time_s > MUST_SYNC_MINIMUM_TIME)
             report_time_s = MUST_SYNC_MINIMUM_TIME;
         const uint64_t wakeup_time_sec = MUST_SYNC_MINIMUM_TIME - report_time_s;

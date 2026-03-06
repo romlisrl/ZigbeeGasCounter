@@ -5,7 +5,7 @@ consumption-measures/
 .vscode/
 sdkconfig.old
 start_mosquitto.sh
-build_ota.sh
+ota.sh
 Cálculos.xlsx
 Cálculos-14500.xlsx
 ~*

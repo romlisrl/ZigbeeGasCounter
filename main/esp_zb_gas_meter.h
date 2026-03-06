@@ -17,6 +17,7 @@
 #define ESP_MODEL_IDENTIFIER            "\x10""MiCASAGasCounter" /* Customized model identifier */
 #define ESP_DATE_CODE                   "\x08""20250301"
 #define ESP_PRODUCT_URL                 "\x2D""https://github.com/IgnacioHR/ZigbeeGasCounter"
+#define ESP_PRODUCT_CODE                "\x00"
 
 // ******************************************************************************
 // ***                         FEATURES CONFIGURATION                        ****

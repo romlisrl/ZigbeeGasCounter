@@ -21,6 +21,8 @@
 uint16_t zigbee_zcl_version = ESP_ZB_ZCL_BASIC_ZCL_VERSION_DEFAULT_VALUE;
 uint16_t zigbee_stack_version = 0x0002;
 uint8_t hw_version = HARDWARE_VERSION;
+uint8_t app_version = APP_VERSION;
+uint8_t stack_version = STACK_VERSION;
 
 const esp_partition_t *s_ota_partition = NULL;
 esp_ota_handle_t s_ota_handle = 0;

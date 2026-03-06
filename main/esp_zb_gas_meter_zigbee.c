@@ -49,12 +49,6 @@ esp_zb_int24_t instantaneous_demand = {
 };
 #endif
 
-struct timeval last_report_sent_time = {
-    .tv_sec = 0,
-    .tv_usec = 0
-};
-uint64_t last_summation_sent = 0;
-
 // value for the ESP_ZB_ZCL_ATTR_IDENTIFY_IDENTIFY_TIME_ID attribute
 uint16_t identify_time = 0;
 
@@ -479,7 +473,11 @@ void esp_zb_task(void *pvParameters)
 
     esp_zb_basic_cluster_cfg_t basic_cfg = {
         .zcl_version = zigbee_zcl_version,
-        .power_source = ESP_ZB_ZCL_BASIC_POWER_SOURCE_BATTERY,
+        #if defined(FEATURE_DEEP_SLEEP) || defined(FEATURE_LIGHT_SLEEP)
+            .power_source = ESP_ZB_ZCL_BASIC_POWER_SOURCE_BATTERY,
+        #else
+            .power_source = ESP_ZB_ZCL_BASIC_POWER_SOURCE_DC_SOURCE,
+        #endif
     };
 
     esp_zb_attribute_list_t *esp_zb_basic_cluster = esp_zb_basic_cluster_create(&basic_cfg);
@@ -503,6 +501,21 @@ void esp_zb_task(void *pvParameters)
     ));
     ESP_ERROR_CHECK(esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, 
         ESP_ZB_ZCL_ATTR_BASIC_HW_VERSION_ID, &hw_version
+    ));
+    ESP_ERROR_CHECK(esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, 
+        ESP_ZB_ZCL_ATTR_BASIC_APPLICATION_VERSION_ID, &app_version
+    ));
+    ESP_ERROR_CHECK(esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, 
+        ESP_ZB_ZCL_ATTR_BASIC_STACK_VERSION_ID, &stack_version
+    ));
+    ESP_ERROR_CHECK(esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, 
+        ESP_ZB_ZCL_ATTR_BASIC_PRODUCT_CODE_ID, ESP_PRODUCT_CODE
+    ));
+    ESP_ERROR_CHECK(esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, 
+        ESP_ZB_ZCL_ATTR_BASIC_SW_BUILD_ID, SW_BUILD_ID
+    ));
+    ESP_ERROR_CHECK(esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, 
+        ESP_ZB_ZCL_ATTR_BASIC_PRODUCT_LABEL_ID, PRODUCT_LABEL
     ));
 
     /* identify cluster create with fully customized */
@@ -822,19 +835,13 @@ void gm_main_loop_zigbee_task(void *arg)
                     }
                     esp_zb_lock_release();
                 }
-                if (status == ESP_ZB_ZCL_STATUS_SUCCESS) {
-                    gettimeofday(&last_report_sent_time, NULL);
-                    last_summation_sent = current_summation_delivered.high;
-                    last_summation_sent <<= 32;
-                    last_summation_sent |= current_summation_delivered.low;
+                #ifdef FEATURE_DEEP_SLEEP
+                if (deep_sleep_task_handle != NULL) {
+                    TickType_t deep_sleep_time = dm_deep_sleep_time_ms();
+                    if (xQueueSendToFront(deep_sleep_queue_handle, &deep_sleep_time, pdMS_TO_TICKS(100)) != pdTRUE)
+                        ESP_LOGE(TAG, "Can't reschedule deep sleep timer");
                 }
-                // #ifdef DEEP_SLEEP
-                // if (deep_sleep_task_handle != NULL) {
-                //     TickType_t deep_sleep_time = dm_deep_sleep_time_ms();
-                //     if (xQueueSendToFront(deep_sleep_queue_handle, &deep_sleep_time, pdMS_TO_TICKS(100)) != pdTRUE)
-                //         ESP_LOGE(TAG, "Can't reschedule deep sleep timer");
-                // }
-                // #endif
+                #endif
                 xEventGroupClearBits(report_event_group_handle, uxBits);
             }
         }
