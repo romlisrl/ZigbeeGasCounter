@@ -41,11 +41,18 @@
 // report the values (the counter) and goes to sleep again. This means it is not
 // likely the device will react to commands send from the user interface. But the
 // benefit is a extended battery life
-//#define FEATURE_DEEP_SLEEP
+#define FEATURE_DEEP_SLEEP
 
 // In LIGHT_SLEEP the ticks are reported more fulently to the coordinator and the
 // device can react to the user interface (the sleep window is set in 30 seconds)
-#define FEATURE_LIGHT_SLEEP
+//#define FEATURE_LIGHT_SLEEP
+
+// In zigbee2mqtt it is not possible to write the value to the real gas counter.
+// The Zigbee Cluster Library Specification in Table 10-57 states that 
+// CurrentSummationDelivered is read only. So, the trick is to implement a custom
+// cluster so values written to it are transferred to the current counter value.
+#define FEATURE_WRITE_COUNTER_VALUE
+
 // ******************************************************************************
 
 
@@ -116,10 +123,10 @@ extern QueueHandle_t deep_sleep_queue_handle;
 extern TaskHandle_t deep_sleep_task_handle;
 extern bool allow_report_to_coordinator;
 
-TickType_t dm_deep_sleep_time_ms();
+TickType_t dm_deep_sleep_time_ticks();
 #endif
 
-void gm_counter_set(const esp_zb_uint48_t *new_value);
+esp_err_t gm_counter_set(const esp_zb_uint48_t *new_value);
 int32_t time_diff_ms(const struct timeval *other);
 
 #define COUNTER_INCREMENT_DEBOUNCE_TIME	3000 // milliseconds, blocks gas counter to increment the value for this period of time

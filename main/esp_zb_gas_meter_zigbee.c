@@ -49,6 +49,12 @@ esp_zb_int24_t instantaneous_demand = {
 };
 #endif
 
+struct timeval last_report_sent_time = {
+    .tv_sec = 0,
+    .tv_usec = 0
+};
+uint64_t last_summation_sent = 0;
+
 // value for the ESP_ZB_ZCL_ATTR_IDENTIFY_IDENTIFY_TIME_ID attribute
 uint16_t identify_time = 0;
 
@@ -231,8 +237,18 @@ esp_zb_zcl_status_t zb_radio_setup_report_values(EventBits_t uxBits)
             ESP_LOGE(TAG, "Updating value of current summation delivered: 0x%04x", status);
             return status;
         }
+#ifdef FEATURE_WRITE_COUNTER_VALUE
+        status = esp_zb_zcl_set_manufacturer_attribute_val(MY_METERING_ENDPOINT,
+            ESP_ZB_ZCL_CLUSTER_ID_METERING, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
+            HW_MANUFACTURER_CODE,
+            GAS_METER_ATTR_SET_SUMMATION_ID, &current_summation_delivered, false);
+        if (status != ESP_ZB_ZCL_STATUS_SUCCESS) {
+            ESP_LOGE(TAG, "Updating value of current summation delivered: 0x%04x", status);
+            return status;
+        }
+#endif
     }
-    #ifdef FEATURE_MEASURE_FLOW_RATE
+#ifdef FEATURE_MEASURE_FLOW_RATE
     if ((uxBits & INSTANTANEOUS_DEMAND_REPORT) == INSTANTANEOUS_DEMAND_REPORT) {
         status = esp_zb_zcl_set_attribute_val(MY_METERING_ENDPOINT,
             ESP_ZB_ZCL_CLUSTER_ID_METERING, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
@@ -242,8 +258,8 @@ esp_zb_zcl_status_t zb_radio_setup_report_values(EventBits_t uxBits)
             return status;
         }
     }
-    #endif
-    #ifdef FEATURE_MEASURE_BATTERY_LEVEL
+#endif
+#ifdef FEATURE_MEASURE_BATTERY_LEVEL
     if ((uxBits & BATTERY_REPORT) == BATTERY_REPORT) {
         status = esp_zb_zcl_set_attribute_val(MY_METERING_ENDPOINT,
             ESP_ZB_ZCL_CLUSTER_ID_POWER_CONFIG, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
@@ -267,7 +283,7 @@ esp_zb_zcl_status_t zb_radio_setup_report_values(EventBits_t uxBits)
             return status;
         }
     }
-    #endif
+#endif
     if ((uxBits & STATUS_REPORT) == STATUS_REPORT) {
         status = esp_zb_zcl_set_attribute_val(MY_METERING_ENDPOINT,
             ESP_ZB_ZCL_CLUSTER_ID_METERING, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
@@ -308,7 +324,7 @@ esp_zb_zcl_status_t zb_radio_send_values(EventBits_t uxBits)
             ESP_LOGE(TAG, "Sending report value of current summation delivered: 0x%04x", status);
             return status;
         }
-        ESP_LOGI(TAG, "CurrentSummationDelivered reported");
+        ESP_LOGI(TAG, "CurrentSummationDelivered reported");     
     }
 
     #ifdef FEATURE_MEASURE_FLOW_RATE
@@ -390,12 +406,17 @@ esp_err_t zb_action_handler(esp_zb_core_action_callback_id_t callback_id, const 
     case ESP_ZB_CORE_SET_ATTR_VALUE_CB_ID: // 0x0000 attribute value set
         esp_zb_zcl_set_attr_value_message_t* setAtrMsg = (esp_zb_zcl_set_attr_value_message_t*)message;
         if (setAtrMsg->info.dst_endpoint == MY_METERING_ENDPOINT && 
-            setAtrMsg->attribute.id == ESP_ZB_ZCL_ATTR_METERING_CURRENT_SUMMATION_DELIVERED_ID &&
+            (
+                setAtrMsg->attribute.id == ESP_ZB_ZCL_ATTR_METERING_CURRENT_SUMMATION_DELIVERED_ID 
+#ifdef FEATURE_WRITE_COUNTER_VALUE                
+                || setAtrMsg->attribute.id == GAS_METER_ATTR_SET_SUMMATION_ID
+#endif            
+            ) &&
             setAtrMsg->info.cluster == ESP_ZB_ZCL_CLUSTER_ID_METERING &&
             setAtrMsg->attribute.data.type == ESP_ZB_ZCL_ATTR_TYPE_U48 &&
             setAtrMsg->attribute.data.size == sizeof(esp_zb_uint48_t)
         ) {
-            gm_counter_set(setAtrMsg->attribute.data.value);
+            ret = gm_counter_set(setAtrMsg->attribute.data.value);
         }
         break;
     case ESP_ZB_CORE_CMD_DEFAULT_RESP_CB_ID: // 0x1005
@@ -656,6 +677,16 @@ void esp_zb_task(void *pvParameters)
                                         ESP_ZB_ZCL_ATTR_ACCESS_READ_ONLY,
                                         &demand_formatting));
 
+    #ifdef FEATURE_WRITE_COUNTER_VALUE
+    ESP_ERROR_CHECK(esp_zb_cluster_add_manufacturer_attr(esp_zb_metering_server_cluster,
+                                        ESP_ZB_ZCL_CLUSTER_ID_METERING,
+                                        GAS_METER_ATTR_SET_SUMMATION_ID,
+                                        HW_MANUFACTURER_CODE,
+                                        ESP_ZB_ZCL_ATTR_TYPE_U48,
+                                        ESP_ZB_ZCL_ATTR_ACCESS_READ_WRITE,
+                                        &current_summation_delivered));
+    #endif
+
     /* client identify cluster */
     esp_zb_attribute_list_t *esp_zb_identify_client_cluster = esp_zb_zcl_attr_list_create(ESP_ZB_ZCL_CLUSTER_ID_IDENTIFY);
 
@@ -835,14 +866,20 @@ void gm_main_loop_zigbee_task(void *arg)
                     }
                     esp_zb_lock_release();
                 }
+                if (status == ESP_ZB_ZCL_STATUS_SUCCESS) {
+                    gettimeofday(&last_report_sent_time, NULL);
+                    last_summation_sent = current_summation_delivered.high;
+                    last_summation_sent <<= 32;
+                    last_summation_sent |= current_summation_delivered.low;
+                }
+                xEventGroupClearBits(report_event_group_handle, uxBits);
                 #ifdef FEATURE_DEEP_SLEEP
                 if (deep_sleep_task_handle != NULL) {
-                    TickType_t deep_sleep_time = dm_deep_sleep_time_ms();
+                    TickType_t deep_sleep_time = dm_deep_sleep_time_ticks();
                     if (xQueueSendToFront(deep_sleep_queue_handle, &deep_sleep_time, pdMS_TO_TICKS(100)) != pdTRUE)
                         ESP_LOGE(TAG, "Can't reschedule deep sleep timer");
                 }
                 #endif
-                xEventGroupClearBits(report_event_group_handle, uxBits);
             }
         }
     }

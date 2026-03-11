@@ -56,10 +56,12 @@ const char *TAG = "GAS_COUNTER";
 struct timeval last_interrupt_time;
 
 // gracie period to avoid entering deep sleep when the zigbee radio has been turned on
+#ifdef FEATURE_DEEP_SLEEP
 struct timeval deep_sleep_gracie_period = {
     .tv_sec = 0,
     .tv_usec = 0
 };
+#endif
 
 // When the main button is pressed a one time task is started
 // to detect a long press without having to wait until
@@ -178,7 +180,7 @@ void save_counter_task(void *arg)
             #ifdef FEATURE_DEEP_SLEEP
             if (deep_sleep_task_handle != NULL)
             {
-                TickType_t deep_sleep_time = dm_deep_sleep_time_ms();
+                TickType_t deep_sleep_time = dm_deep_sleep_time_ticks();
                 if (xQueueSendToFront(deep_sleep_queue_handle, &deep_sleep_time, pdMS_TO_TICKS(100)) != pdTRUE)
                     ESP_LOGE(TAG, "Can't reschedule deep sleep timer");
             }
@@ -196,7 +198,7 @@ void save_counter_task(void *arg)
 }
 
 // Set counter value and save
-void gm_counter_set(const esp_zb_uint48_t *new_value)
+esp_err_t gm_counter_set(const esp_zb_uint48_t *new_value)
 {
     current_summation_delivered.low = new_value->low;
     current_summation_delivered.high = new_value->high;
@@ -205,15 +207,16 @@ void gm_counter_set(const esp_zb_uint48_t *new_value)
     current_summation_64 |= current_summation_delivered.low;
     xEventGroupSetBits(report_event_group_handle, CURRENT_SUMMATION_DELIVERED_REPORT);
     xTaskNotifyGive(save_counter_task_handle);
+    return ESP_OK;
 }
 
 // Reset counter value to 0 and save
-void gm_counter_reset()
+esp_err_t gm_counter_reset()
 {
     esp_zb_uint48_t zero = {
         .low = 0,
         .high = 0};
-    gm_counter_set(&zero);
+    return gm_counter_set(&zero);
 }
 
 // Helper function to return the time in milliseconds since now and the other timeval
@@ -234,8 +237,21 @@ void check_shall_enable_radio()
 {
     if (zigbee_task_handle == NULL)
     {
-        xEventGroupSetBits(main_event_group_handle, SHALL_ENABLE_ZIGBEE);
-        xEventGroupSetBits(report_event_group_handle, CURRENT_SUMMATION_DELIVERED_REPORT);
+        bool enable_radio =
+            (last_report_sent_time.tv_sec == 0 && last_report_sent_time.tv_usec == 0) ||
+            (time_diff_ms(&last_report_sent_time) / 1000 >= MUST_SYNC_MINIMUM_TIME);
+        if (!enable_radio && last_summation_sent > 0)
+        {
+            uint64_t current_summation_64 = current_summation_delivered.high;
+            current_summation_64 <<= 32;
+            current_summation_64 |= current_summation_delivered.low;
+            enable_radio = current_summation_64 - last_summation_sent >= COUNTER_REPORT_DIFF;
+        }
+        if (enable_radio)
+        {
+            xEventGroupSetBits(main_event_group_handle, SHALL_ENABLE_ZIGBEE);
+            xEventGroupSetBits(report_event_group_handle, CURRENT_SUMMATION_DELIVERED_REPORT);
+        }
     }
 }
 
@@ -318,44 +334,6 @@ void gm_compute_instantaneous_demand(int time_diff_ms, bool fromISR)
 // Adds one to current_summation_delivered and nothing else
 void gm_counter_increment(const struct timeval *now, bool fromISR)
 {
-    // if (fromISR)
-    // {
-    //     taskENTER_CRITICAL_ISR(&counter_spinlock);
-    // }
-    // else
-    // {
-    //     taskENTER_CRITICAL(&counter_spinlock);
-    // }
-    // bool debounce = false;
-    // #ifdef MEASURE_FLOW_RATE
-    // bool compute_instantaneous_demand = false;
-    // #endif
-    // int time_diff_ms = 0;
-    // if (last_pulse_time.tv_sec != 0 || last_pulse_time.tv_usec != 0)
-    // {
-    //     time_diff_ms = (now->tv_sec - last_pulse_time.tv_sec) * 1000 +
-    //                    (now->tv_usec - last_pulse_time.tv_usec) / 1000;
-    //     // debounce
-    //     debounce = time_diff_ms > 0 && time_diff_ms < COUNTER_INCREMENT_DEBOUNCE_TIME;
-    //     #ifdef MEASURE_FLOW_RATE
-    //     compute_instantaneous_demand = time_diff_ms > 0 && !debounce;
-    //     #endif
-    // }
-    // if (!debounce)
-    // {
-    //     last_pulse_time.tv_usec = now->tv_usec;
-    //     last_pulse_time.tv_sec = now->tv_sec;
-    // }
-    // if (fromISR)
-    // {
-    //     taskEXIT_CRITICAL_ISR(&counter_spinlock);
-    // }
-    // else
-    // {
-    //     taskEXIT_CRITICAL(&counter_spinlock);
-    // }
-    // if (debounce)
-    //     return;
     led_on();
     current_summation_delivered.low += 1; // Adds up 1 cent of m³
     if (current_summation_delivered.low == 0)
@@ -415,11 +393,11 @@ void leave_action()
 
 #ifdef FEATURE_DEEP_SLEEP
 // Compute how long to wait for sleep depending on device conditions
-TickType_t dm_deep_sleep_time_ms()
+TickType_t dm_deep_sleep_time_ticks()
 {
-    const TickType_t before_deep_sleep_time_ms = (zigbee_task_handle != NULL ? TIME_TO_SLEEP_ZIGBEE_ON : TIME_TO_SLEEP_ZIGBEE_OFF);
-    ESP_LOGD(TAG, "Start one-shot timer for %ldms to enter the deep sleep", before_deep_sleep_time_ms);
-    return pdMS_TO_TICKS(before_deep_sleep_time_ms);
+    const TickType_t before_deep_sleep_time_ticks = (zigbee_task_handle != NULL ? TIME_TO_SLEEP_ZIGBEE_ON : TIME_TO_SLEEP_ZIGBEE_OFF);
+    ESP_LOGD(TAG, "Start one-shot timer for %ldms to enter the deep sleep", before_deep_sleep_time_ticks);
+    return before_deep_sleep_time_ticks;
 }
 
 
@@ -438,9 +416,13 @@ void deep_sleep_controller_task(void *arg)
             // {
             //     ESP_LOGE(TAG, "Can't stop deep sleep timer");
             // }
+            ESP_LOGI(TAG, "Deep sleep timer value received %d", new_timer_value);
             if (deep_sleep_gracie_period.tv_sec > 0) {
                 int elapsed = time_diff_ms(&deep_sleep_gracie_period);
-                if (elapsed < 0) continue;
+                if (elapsed < 0) {
+                    ESP_LOGI(TAG, "Deep sleep timer Under grace period, ignored");
+                    continue;
+                }
             }
             if (new_timer_value == portMAX_DELAY)
             {
@@ -451,9 +433,14 @@ void deep_sleep_controller_task(void *arg)
             }
             else
             {
-                if (xTimerChangePeriod(deep_sleep_timer, new_timer_value, pdMS_TO_TICKS(100)) != pdPASS)
-                {
-                    ESP_LOGE(TAG, "Can't change deep sleep timer time");
+                if (xTimerIsTimerActive(deep_sleep_timer) == pdFALSE) {
+                    ESP_LOGI(TAG, "Deep sleep timer started");
+                    xTimerStart(deep_sleep_timer, new_timer_value);
+                } else {
+                    if (xTimerChangePeriod(deep_sleep_timer, new_timer_value, pdMS_TO_TICKS(100)) != pdPASS)
+                    {
+                        ESP_LOGE(TAG, "Can't change deep sleep timer time");
+                    }
                 }
             }
         }
@@ -685,7 +672,11 @@ void gm_main_loop_task(void *arg)
             #endif
             ,pdTRUE // clear on exit
             ,pdFALSE
+            #ifdef FEATURE_LIGHT_SLEEP
             ,portMAX_DELAY  // Block indefinitely - triggered by events/callbacks instead of polling
+            #else
+            ,TIME_TO_SLEEP_ZIGBEE_ON + pdMS_TO_TICKS(50)
+            #endif
         );
         if (uxBits != 0)
         {
@@ -759,12 +750,6 @@ void gm_main_loop_task(void *arg)
                 } else {
                     ESP_LOGI(TAG, "Starting deep sleep functionality");
                     ESP_ERROR_CHECK(xTaskCreate(deep_sleep_controller_task, "deep_sleep", 2048, NULL, 20, &deep_sleep_task_handle) != pdPASS);
-                    if (deep_sleep_task_handle != NULL)
-                    {
-                        TickType_t deep_sleep_time = dm_deep_sleep_time_ms();
-                        if (xQueueSendToFront(deep_sleep_queue_handle, &deep_sleep_time, pdMS_TO_TICKS(100)) != pdTRUE)
-                            ESP_LOGE(TAG, "Can't reschedule deep sleep timer");
-                    }
                 }
             }
             if ((uxBits & SHALL_STOP_DEEP_SLEEP) == SHALL_STOP_DEEP_SLEEP)
@@ -778,6 +763,20 @@ void gm_main_loop_task(void *arg)
             }
             #endif
         }
+        #ifdef FEATURE_DEEP_SLEEP 
+        if (deep_sleep_task_handle != NULL)
+        {
+            int elapsed = time_diff_ms(&deep_sleep_gracie_period);
+            if (elapsed > 0) {
+                TickType_t deep_sleep_time = dm_deep_sleep_time_ticks();
+                // ESP_LOGI(TAG, "Will check deep sleep in %d...", deep_sleep_time);
+                if (xQueueSendToFront(deep_sleep_queue_handle, &deep_sleep_time, pdMS_TO_TICKS(100)) != pdTRUE)
+                    ESP_LOGE(TAG, "Can't reschedule deep sleep timer");
+            } else {
+                ESP_LOGI(TAG, "Will wait for %ds ... to start deep sleep", -elapsed);
+            }
+        }
+        #endif
     }
 }
 
@@ -912,12 +911,16 @@ esp_err_t gm_deep_sleep_init()
     #endif
 
     #if defined(FEATURE_DEEP_SLEEP) || defined(FEATURE_LIGHT_SLEEP)
+        if (last_report_sent_time.tv_sec == 0 && last_report_sent_time.tv_usec == 0) {
+            ESP_LOGI(TAG, "Last report sent time initialized");
+            gettimeofday(&last_report_sent_time, NULL);
+        }
         /* Set the methods of how to wake up: */
         /* 1. RTC timer waking-up */
         /* This is useless in LIGHT_SLEEP */
         ESP_LOGI(TAG, "Configuring wake up methods");
-        int report_time_s = (gpio_time.tv_sec) +
-                            (gpio_time.tv_usec) / 1000000;
+        int report_time_s = (gpio_time.tv_sec - last_report_sent_time.tv_sec) +
+                            (gpio_time.tv_usec - last_report_sent_time.tv_usec) / 1000000;
         if (report_time_s > MUST_SYNC_MINIMUM_TIME)
             report_time_s = MUST_SYNC_MINIMUM_TIME;
         const uint64_t wakeup_time_sec = MUST_SYNC_MINIMUM_TIME - report_time_s;
