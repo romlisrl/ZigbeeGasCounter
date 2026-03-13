@@ -14,7 +14,7 @@
 #define ESP_ZB_GAS_METER_H
 
 #define ESP_MANUFACTURER_NAME           "\x14""Custom devices (DiY)"
-#define ESP_MODEL_IDENTIFIER            "\x10""GASOGasCounter" /* Customized model identifier */
+#define ESP_MODEL_IDENTIFIER            "\x10""MiCASAGasCounter" /* Customized model identifier */
 #define ESP_DATE_CODE                   "\x08""20250301"
 #define ESP_PRODUCT_URL                 "\x2D""https://github.com/IgnacioHR/ZigbeeGasCounter"
 #define ESP_PRODUCT_CODE                "\x00"
@@ -62,21 +62,19 @@
 // ******************************************************************************
 
 // define only when using Seeed Studio ESP32C6 WITH external antenna.
-#define CONFIG_EXTERNAL_ANTENNA
+//#define CONFIG_EXTERNAL_ANTENNA
 
-// input - pin with gas reel sensor
-//#define PULSE_PIN 													GPIO_NUM_1
+// input - pin with gas reel sensor,default for ESP32C6 GPIO_NUM_1
 #define PULSE_PIN 													GPIO_NUM_10
 
-// input - pin for the main button
-//#define MAIN_BTN 														GPIO_NUM_0
+// input - pin for the main button, default for ESP32C6 GPIO_NUM_0
 #define MAIN_BTN 														GPIO_NUM_9
 
-// output - pin to enable battery voltage to the adc converter
-#define BAT_MON_ENABLE                      GPIO_NUM_21
+// output - pin to enable battery voltage to the adc converter, default for ESP32C6 GPIO_NUM_21
+#define BAT_MON_ENABLE                      GPIO_NUM_0
 
 #ifdef FEATURE_MEASURE_BATTERY_LEVEL
-#define ADC_CHANNEL													ADC_CHANNEL_2
+#define ADC_CHANNEL													ADC_CHANNEL_1
 #endif
 
 // ******************************************************************************

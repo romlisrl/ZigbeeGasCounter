@@ -10,9 +10,8 @@
  * as you credit the original author(s) and share any derivatives under the same license.
  */
 
-// Seeedstudio yellow pin
-//#define LED_PIN GPIO_NUM_15
-#define LED_PIN GPIO_NUM_2
+// Seeedstudio yellow pin, default for ESP32C6 GPIO_NUM_15
+#define LED_PIN GPIO_NUM_8
 
 esp_err_t config_led();
 

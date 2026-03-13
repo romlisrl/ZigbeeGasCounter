@@ -889,7 +889,7 @@ esp_err_t gm_deep_sleep_init()
                 }
                 #ifdef FEATURE_DEEP_SLEEP
                 TickType_t deep_sleep_time = portMAX_DELAY;
-                if (xQueueSendToFront(deep_sleep_queue_handle, &deep_sleep_time, pdMS_TO_TICKS(1000)) != pdTRUE)
+                if (xQueueSendToFront(deep_sleep_queue_handle, &deep_sleep_time, pdMS_TO_TICKS(500)) != pdTRUE)
                 {
                     ESP_LOGE(TAG, "Can't reschedule deep sleep timer");
                 }
