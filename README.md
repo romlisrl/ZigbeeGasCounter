@@ -26,13 +26,13 @@ Below are some screenshots of the device integrated into Zigbee2MQTT:
 
 ## Why Zigbee for DIY Projects?
 
-Zigbee is a low-power, reliable wireless protocol ideal for IoT devices. Unlike Wi-Fi, Zigbee consumes minimal energy, making it perfect for battery-operated devices. While commercial Zigbee gas meters aren’t readily available, this project demonstrates how to build one from scratch using affordable components and the ESP32-C6 module.
+Zigbee is a low-power, reliable wireless protocol ideal for IoT devices. Unlike Wi-Fi, Zigbee consumes minimal energy, making it perfect for battery-operated devices. While commercial Zigbee gas meters aren’t readily available, this project demonstrates how to build one from scratch using affordable components and the ESP32-H2 module.
 
 ## How It Works
 
 1. The gas meter’s rotating wheel has a built-in magnet.
 1. A magnetic sensor detects each full rotation of the wheel, corresponding to a predefined volume of gas.
-1. The ESP32-C6 processes the data, maintaining a cumulative counter (currentSummDelivered) and calculating instantaneous demand (instantaneousDemand) in m³/h.
+1. The ESP32-H2 processes the data, maintaining a cumulative counter (currentSummDelivered) and calculating instantaneous demand (instantaneousDemand) in m³/h.
 1. These metrics are sent via Zigbee to Zigbee2MQTT, which forwards them to Home Assistant.
 
 ## Motivation
@@ -79,7 +79,7 @@ For discussions and contributions, please join the ongoing thread on the Home As
 
 One of my main concerns is **power consumption and battery life**. The software includes battery status measuring and reporting.
 
-Currently, the testing prototype runs on a Seed Studio ESP32-C6, but the long-term goal is to use only the **ESP32-C6 chip**, eliminating unnecessary components. To achieve this, I will need help reviewing schematics and PCB designs, as **I’m not an expert in hardware design—just an enthusiast**. If you have experience in this area, your input would be greatly appreciated.
+Currently, the testing prototype runs on a ESP32-H2, but the long-term goal is to use only the **ESP32-H2 chip**, eliminating unnecessary components. To achieve this, I will need help reviewing schematics and PCB designs, as **I’m not an expert in hardware design—just an enthusiast**. If you have experience in this area, your input would be greatly appreciated.
 
 ## Getting Started
 
@@ -87,9 +87,8 @@ Currently, the testing prototype runs on a Seed Studio ESP32-C6, but the long-te
 
 To build this project, you’ll need:
 
-- **Seed Studio ESP32-C6** or a compatible development board.
+- **ESP32-H2** or a compatible development board.
 - **Magnetic reed switch** for pulse detection.
-- **10kΩ resistors** (pull-down).
 - **3.6 LiPo battery**. TBD
 - Optional: Custom 3D-printed enclosure for the hardware.
 - Optional: External 2.4 Ghz antena.
@@ -113,10 +112,10 @@ cd ZigbeeGasCounter
 
 ### **2. Configure the target chip**
 
-Set the corrent target for the ESP32-C6:
+Set the corrent target for the ESP32-H2:
 
 ```bash
-idf.py --preview set-target ESP32C6
+idf.py --preview set-target ESP32H2
 ```
 
 ### **3. Install Dependencies**
@@ -133,7 +132,7 @@ idf.py -p PORT erase-flash
 
 ### **4. Build and Flash**
 
-Compile the code and flash it to the ESP32-C6 board:
+Compile the code and flash it to the ESP32-H2 board:
 
 ```bash
 idf.py build
@@ -191,7 +190,7 @@ If you want to contribute or improve this project, feel free to fork the reposit
 
 Here are the planned improvements:
 
-1. Design a custom PCB for the ESP32-C6, connectors and resistors.
+1. Design a custom PCB for the ESP32-H2, connectors and resistors.
 2. Create a 3D-printed enclosure for secure installation.
 3. Light-Sleep mode, the chip is not entering Light-Sleep
 
