@@ -104,7 +104,7 @@ bool IRAM_ATTR bat_conv_done_cb(adc_continuous_handle_t handle, const adc_contin
 {
     BaseType_t mustYield = pdFALSE;
     //Notify that ADC continuous driver has done enough number of conversions
-    vTaskGenericNotifyGiveFromISR(adc_task_handle, 1, &mustYield);
+    vTaskGenericNotifyGiveFromISR(adc_task_handle, 0, &mustYield);
 
     return (mustYield == pdTRUE);
 }
@@ -193,7 +193,7 @@ void adc_task(void *arg)
         uint8_t result[BAT_BUFFER_READ_LEN] = {0};
         memset(result, 0xcc, BAT_BUFFER_READ_LEN);
 
-        ulTaskGenericNotifyTake(1, pdTRUE, portMAX_DELAY);
+        ulTaskGenericNotifyTake(0, pdTRUE, portMAX_DELAY);
         error = gpio_set_level(BAT_MON_ENABLE, 0);
         if (error != ESP_OK) {
             ESP_LOGE(TAG, "Can't set BAT_MON_ENABLE to 0");

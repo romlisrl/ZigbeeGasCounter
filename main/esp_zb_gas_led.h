@@ -11,7 +11,8 @@
  */
 
 // Seeedstudio yellow pin
-#define LED_PIN GPIO_NUM_15
+//#define LED_PIN GPIO_NUM_15
+#define LED_PIN GPIO_NUM_2
 
 esp_err_t config_led();
 
