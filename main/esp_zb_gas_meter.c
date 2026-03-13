@@ -791,7 +791,7 @@ void enter_deep_sleep_cb(TimerHandle_t xTimer)
         return;
     }
     ESP_LOGI(TAG, "Enter deep sleep");
-    exception_pulse_button_on_hold = gpio_get_level(PULSE_PIN) == 1;
+    exception_pulse_button_on_hold = gpio_get_level(PULSE_PIN) == 0;
     gettimeofday(&sleep_enter_time, NULL);
     esp_deep_sleep_start();
 }
@@ -871,20 +871,27 @@ esp_err_t gm_deep_sleep_init()
                 int level = gpio_get_level(PULSE_PIN);
                 // if PULSE_PIN is low AND check_gpio_time is true we
                 // miss the interrupt so count it now
-                if (!exception_pulse_button_on_hold && level == 0)
+                if (!exception_pulse_button_on_hold)
                 {
                     gm_counter_increment(&gpio_time, false);
+                    if (level == 0) 
+                    {
+                        exception_pulse_button_on_hold = true;
+                    }
+                    // ESP_LOGI(TAG, "Counter saved to NVS after wakeup");
                 }
-                else if (exception_pulse_button_on_hold && level == 1)
+                else
                 { // rare, but not impossible
-                    exception_pulse_button_on_hold = false;
+                    if (level == 1) 
+                    {
+                        exception_pulse_button_on_hold = false;
+                    }
                 }
                 #ifdef FEATURE_DEEP_SLEEP
-                else
+                TickType_t deep_sleep_time = portMAX_DELAY;
+                if (xQueueSendToFront(deep_sleep_queue_handle, &deep_sleep_time, pdMS_TO_TICKS(1000)) != pdTRUE)
                 {
-                    TickType_t deep_sleep_time = portMAX_DELAY;
-                    if (xQueueSendToFront(deep_sleep_queue_handle, &deep_sleep_time, pdMS_TO_TICKS(100)) != pdTRUE)
-                        ESP_LOGE(TAG, "Can't reschedule deep sleep timer");
+                    ESP_LOGE(TAG, "Can't reschedule deep sleep timer");
                 }
                 #endif
                 resolved = true;
