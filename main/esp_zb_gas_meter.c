@@ -871,11 +871,11 @@ esp_err_t gm_deep_sleep_init()
                 int level = gpio_get_level(PULSE_PIN);
                 // if PULSE_PIN is low AND check_gpio_time is true we
                 // miss the interrupt so count it now
-                if (!exception_pulse_button_on_hold && level == 1)
+                if (!exception_pulse_button_on_hold && level == 0)
                 {
                     gm_counter_increment(&gpio_time, false);
                 }
-                else if (exception_pulse_button_on_hold && level == 0)
+                else if (exception_pulse_button_on_hold && level == 1)
                 { // rare, but not impossible
                     exception_pulse_button_on_hold = false;
                 }
@@ -932,8 +932,7 @@ esp_err_t gm_deep_sleep_init()
 
         /* PULSE_PIN and MAIN_BTN wake up on pull up */
 
-//        ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup(gpio_mainbtn_pin_mask | gpio_pulse_pin_mask , ESP_EXT1_WAKEUP_ANY_HIGH));
-        ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup((1ULL << PULSE_PIN), ESP_EXT1_WAKEUP_ANY_HIGH));
+        ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup((1ULL << PULSE_PIN), ESP_EXT1_WAKEUP_ANY_LOW));
         
         #ifdef FEATURE_DEEP_SLEEP
             esp_deep_sleep_disable_rom_logging();
@@ -958,7 +957,7 @@ void IRAM_ATTR gpio_pulse_isr_handler(void *arg)
     // Increment current_summation_delivery
     // read pin to determine failing or raising edge
     int level = gpio_get_level(PULSE_PIN);
-    if (level == 1) // changed to 0, initial 1
+    if (level == 0) // changed to 0, initial 1
     {
         gm_counter_increment(&now, true);
     }
@@ -1005,14 +1004,13 @@ esp_err_t gm_gpio_interrup_init()
     ESP_RETURN_ON_ERROR(gpio_wakeup_enable(PULSE_PIN,GPIO_INTR_LOW_LEVEL), TAG, "Can't enable gpio wakeup for PULSE_PIN HIGH");
     ESP_RETURN_ON_ERROR(gpio_wakeup_enable(MAIN_BTN,GPIO_INTR_LOW_LEVEL), TAG, "Can't enable gpio wakeup for MAIN_BTN HIGH");
     #endif
-
-                                                                   //      __
-    gpio_config_t io_conf_pulse = {                                // ____|  |_____
-                                   .intr_type = GPIO_INTR_POSEDGE, //     ^- Interrupt rising edge
-                                   .mode = GPIO_MODE_INPUT,        // Input pin
-                                   .pin_bit_mask = (1ULL << PULSE_PIN),
-                                   .pull_down_en = GPIO_PULLDOWN_DISABLE,
-                                   .pull_up_en = GPIO_PULLUP_DISABLE};
+                                                                   
+    gpio_config_t io_conf_pulse = {                                
+                                   .intr_type = GPIO_INTR_NEGEDGE,       // Interrupt when connecto to GND
+                                    .mode = GPIO_MODE_INPUT,
+                                    .pin_bit_mask = (1ULL << PULSE_PIN),
+                                    .pull_down_en = GPIO_PULLDOWN_DISABLE,
+                                    .pull_up_en = GPIO_PULLUP_ENABLE};
     ESP_RETURN_ON_ERROR(gpio_config(&io_conf_pulse), TAG, "Can't config gpio for PULSE_PIN and MAIN_PIN pins");
                                                                      //      __
     gpio_config_t io_conf_mainbtn = {                                // ____|  |_____
