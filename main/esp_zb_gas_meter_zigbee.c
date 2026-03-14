@@ -36,7 +36,7 @@ struct timeval time_commisioning_started = {
 #endif
 
 esp_zb_uint48_t current_summation_delivered = {
-	.low = 0,  // initial value of gas meter, will be incremented with pulses and updated with zigbee radio
+	.low = 0,  // initial value of gas meter (32546 - 325.46м³), will be incremented with pulses
 	.high = 0
 };
 

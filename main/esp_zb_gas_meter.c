@@ -169,6 +169,7 @@ void save_counter_task(void *arg)
     while (true)
     {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        led_on(); // turn on led to indicate we are saving the counter, this is useful for debugging but can be removed in production
         uint64_t to_save_count = current_summation_delivered.high;
         to_save_count <<= 32;
         to_save_count |= current_summation_delivered.low;
@@ -334,7 +335,9 @@ void gm_compute_instantaneous_demand(int time_diff_ms, bool fromISR)
 // Adds one to current_summation_delivered and nothing else
 void gm_counter_increment(const struct timeval *now, bool fromISR)
 {
-    led_on();
+    if (!fromISR) {
+        led_on();
+    }
     current_summation_delivered.low += 1; // Adds up 1 cent of m³
     if (current_summation_delivered.low == 0)
     {

@@ -71,10 +71,11 @@
 #define MAIN_BTN 														GPIO_NUM_9
 
 // output - pin to enable battery voltage to the adc converter, default for ESP32C6 GPIO_NUM_21
-#define BAT_MON_ENABLE                      GPIO_NUM_0
+#define BAT_MON_ENABLE                      GPIO_NUM_25
 
 #ifdef FEATURE_MEASURE_BATTERY_LEVEL
-#define ADC_CHANNEL													ADC_CHANNEL_1
+// adc channel to use, default for ESP32C6 ADC_CHANNEL_2
+#define ADC_CHANNEL													ADC_CHANNEL_2
 #endif
 
 // ******************************************************************************
@@ -110,7 +111,7 @@ extern const char *TAG;
 // deep sleep timer
 #define SHALL_STOP_DEEP_SLEEP						(1U << 3)
 
-// Command to start the deel sleep functionality. When the main loop starts
+// Command to start the deep sleep functionality. When the main loop starts
 // and when the OTA is cancelled
 #define SHALL_START_DEEP_SLEEP					(1U << 4)
 #endif
